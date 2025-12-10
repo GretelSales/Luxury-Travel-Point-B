@@ -12,7 +12,11 @@ import circuitIncludesRoutes from "./routes/circuitIncludes.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "luxury-travel-point-backend.vercel.app",
+  })
+);
 app.use(express.json());
 
 app.get("/", (req, res) =>
@@ -27,5 +31,5 @@ app.use("/api/include-items", includeItemsRoutes);
 app.use("/api/circuit-includes", circuitIncludesRoutes);
 app.use("/api/auth", authRoutes);
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
