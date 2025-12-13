@@ -12,11 +12,7 @@ import circuitIncludesRoutes from "./routes/circuitIncludes.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
-app.use(
-  cors({
-    origin: "luxury-travel-point-backend.vercel.app",
-  })
-);
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) =>
