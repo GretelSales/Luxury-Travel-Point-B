@@ -282,80 +282,65 @@ export const getCircuitsFullPaginated = async (req, res) => {
     circuits: data,
   });
 };
-
 export const getCircuitFullById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    /* 1. Circuito base */
-    const circuitResult = await pool.query(
-      `SELECT *
-       FROM circuits
-       WHERE id = $1`,
-      [id]
-    );
+    // 1️⃣ Circuito base
+    const { data: circuit, error: circuitError } = await supabase
+      .from("circuits")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    if (circuitResult.rows.length === 0) {
+    if (circuitError || !circuit)
       return res.status(404).json({ message: "Circuit not found" });
-    }
 
-    const circuit = circuitResult.rows[0];
+    // 2️⃣ Schedules
+    const { data: schedules } = await supabase
+      .from("circuit_schedules")
+      .select("id, start_date, end_date")
+      .eq("circuit_id", id)
+      .order("start_date", { ascending: true });
 
-    /* 2. Días + ciudad + imágenes */
-    const daysResult = await pool.query(
-      `
-      SELECT
-        cd.id,
-        cd.day_number,
-        c.id AS city_id,
-        c.name AS city_name,
-        c.description,
-        c.country,
-        COALESCE(
-          json_agg(ci.image_url) FILTER (WHERE ci.id IS NOT NULL),
-          '[]'
-        ) AS images
-      FROM circuit_days cd
-      LEFT JOIN cities c ON cd.city_id = c.id
-      LEFT JOIN city_images ci ON ci.city_id = c.id
-      WHERE cd.circuit_id = $1
-      GROUP BY cd.id, c.id
-      ORDER BY cd.day_number
-      `,
-      [id]
-    );
+    // 3️⃣ Días + ciudades
+    const { data: days } = await supabase
+      .from("circuit_days")
+      .select("day_number, city_id, cities(id, name, country, description)")
+      .eq("circuit_id", id)
+      .order("day_number");
 
-    /* 3. Includes */
-    const includesResult = await pool.query(
-      `
-      SELECT ii.id, ii.label
-      FROM circuit_includes ci
-      JOIN include_items ii ON ii.id = ci.item_id
-      WHERE ci.circuit_id = $1
-      `,
-      [id]
-    );
+    const cityIds = days.map((d) => d.city_id).filter(Boolean);
 
-    /* 4. Schedules */
-    const schedulesResult = await pool.query(
-      `
-      SELECT id, start_date, end_date
-      FROM circuit_schedules
-      WHERE circuit_id = $1
-      ORDER BY start_date
-      `,
-      [id]
-    );
+    // 4️⃣ Imágenes
+    const { data: images } = await supabase
+      .from("city_images")
+      .select("*")
+      .in("city_id", cityIds);
 
-    /* 5. Respuesta final */
+    // 5️⃣ Includes
+    const { data: includes } = await supabase
+      .from("circuit_includes")
+      .select("include_items(label)")
+      .eq("circuit_id", id);
+
+    // 6️⃣ Construir respuesta
     res.json({
       ...circuit,
-      days: daysResult.rows,
-      includes: includesResult.rows,
-      schedules: schedulesResult.rows,
+      schedules: schedules || [],
+      daysData: days.map((d) => ({
+        day: d.day_number,
+        city: d.cities?.name,
+        country: d.cities?.country,
+        description: d.cities?.description,
+        images: images
+          .filter((img) => img.city_id === d.city_id)
+          .map((img) => img.image_url),
+      })),
+      includes: includes?.map((i) => i.include_items.label) || [],
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    console.error("getCircuitFullById error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
