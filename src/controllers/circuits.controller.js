@@ -282,3 +282,80 @@ export const getCircuitsFullPaginated = async (req, res) => {
     circuits: data,
   });
 };
+
+export const getCircuitFullById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    /* 1. Circuito base */
+    const circuitResult = await pool.query(
+      `SELECT *
+       FROM circuits
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (circuitResult.rows.length === 0) {
+      return res.status(404).json({ message: "Circuit not found" });
+    }
+
+    const circuit = circuitResult.rows[0];
+
+    /* 2. Días + ciudad + imágenes */
+    const daysResult = await pool.query(
+      `
+      SELECT
+        cd.id,
+        cd.day_number,
+        c.id AS city_id,
+        c.name AS city_name,
+        c.description,
+        c.country,
+        COALESCE(
+          json_agg(ci.image_url) FILTER (WHERE ci.id IS NOT NULL),
+          '[]'
+        ) AS images
+      FROM circuit_days cd
+      LEFT JOIN cities c ON cd.city_id = c.id
+      LEFT JOIN city_images ci ON ci.city_id = c.id
+      WHERE cd.circuit_id = $1
+      GROUP BY cd.id, c.id
+      ORDER BY cd.day_number
+      `,
+      [id]
+    );
+
+    /* 3. Includes */
+    const includesResult = await pool.query(
+      `
+      SELECT ii.id, ii.label
+      FROM circuit_includes ci
+      JOIN include_items ii ON ii.id = ci.item_id
+      WHERE ci.circuit_id = $1
+      `,
+      [id]
+    );
+
+    /* 4. Schedules */
+    const schedulesResult = await pool.query(
+      `
+      SELECT id, start_date, end_date
+      FROM circuit_schedules
+      WHERE circuit_id = $1
+      ORDER BY start_date
+      `,
+      [id]
+    );
+
+    /* 5. Respuesta final */
+    res.json({
+      ...circuit,
+      days: daysResult.rows,
+      includes: includesResult.rows,
+      schedules: schedulesResult.rows,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
