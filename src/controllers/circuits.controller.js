@@ -11,79 +11,24 @@ export const getAllCircuits = async (req, res) => {
   res.json(data);
 };
 
-export const getCircuitById = async (req, res) => {
-  const { id } = req.params;
+export const getCircuitsFullPaginated = async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 9;
+  const offset = (page - 1) * limit;
 
-  // Circuito base
-  const { data: circuit, error: circuitError } = await supabase
+  const { data, count, error } = await supabase
     .from("circuits")
-    .select("id, name, days, base_price, starting_point")
-    .eq("id", id)
-    .single();
-
-  if (circuitError || !circuit)
-    return res.status(404).json({ error: "Circuit not found" });
-
-  // schedules
-  const { data: schedules, error: schedulesError } = await supabase
-    .from("circuit_schedules")
-    .select("id, start_date, end_date")
-    .eq("circuit_id", id)
-    .order("start_date", { ascending: true });
-
-  if (schedulesError) return res.status(400).json({ error: schedulesError });
-
-  // días y demás (como ya lo tenías)
-  const { data: days } = await supabase
-    .from("circuit_days")
-    .select("day_number, city_id, cities(name, description)")
-    .eq("circuit_id", id)
-    .order("day_number");
-
-  const { data: images } = await supabase
-    .from("city_images")
-    .select("*")
-    .in(
-      "city_id",
-      days.map((d) => d.city_id)
-    );
-
-  const { data: includes } = await supabase
-    .from("circuit_includes")
-    .select("include_items(label)")
-    .eq("circuit_id", id);
-
-  res.json({
-    ...circuit,
-    schedules: schedules || [],
-    days,
-    images,
-    includes: includes?.map((i) => i.include_items.label) || [],
-  });
-};
-
-// Controller
-export const getAvailableCircuits = async (req, res) => {
-  const { from, to } = req.query;
-  if (!from || !to)
-    return res.status(400).json({ error: "from and to required" });
-
-  const { data: schedules, error } = await supabase
-    .from("circuit_schedules")
-    .select("circuit_id")
-    .gte("start_date", from)
-    .lte("end_date", to)
-    .distinct("circuit_id");
+    .select("*", { count: "exact" })
+    .range(offset, offset + limit - 1);
 
   if (error) return res.status(400).json({ error });
 
-  const ids = schedules.map((s) => s.circuit_id);
-  const { data: circuits } = await supabase
-    .from("circuits")
-    .select("id, name, days, base_price")
-    .in("id", ids);
-
-  res.json(circuits || []);
+  res.json({
+    page,
+    total: count,
+    totalPages: Math.ceil(count / limit),
+    circuits: data,
+  });
 };
 
 export const createCircuit = async (req, res) => {
@@ -128,6 +73,8 @@ export const deleteCircuit = async (req, res) => {
 
 export const getCircuitsFull = async (req, res) => {
   try {
+    const lang = req.query.lang === "en" ? "en" : "es"; // valor por defecto: español
+
     // 1) Traer todos los circuitos básicos
     const { data: circuits, error: circuitsError } = await supabase
       .from("circuits")
@@ -136,8 +83,9 @@ export const getCircuitsFull = async (req, res) => {
 
     if (circuitsError) return res.status(400).json({ error: circuitsError });
 
-    // 2) Para eficiencia, traer schedules de todos los circuitos en 1 consulta
     const circuitIds = circuits.map((c) => c.id);
+
+    // 2) Traer schedules
     const { data: schedulesAll, error: schedulesError } = await supabase
       .from("circuit_schedules")
       .select("id, circuit_id, start_date, end_date")
@@ -146,14 +94,11 @@ export const getCircuitsFull = async (req, res) => {
 
     if (schedulesError) return res.status(400).json({ error: schedulesError });
 
-    // 3) Traer dias e includes e imágenes (puedes seguir con tus actuales consultas por circuito)
-    // pero para rendimiento también puedes traer circuit_days e images para todos y luego agrupar.
-    // Aquí hago tres consultas globales y luego agrupo en memoria.
-
+    // 3) Traer días, ciudades, imágenes y includes
     const { data: daysAll, error: daysError } = await supabase
       .from("circuit_days")
       .select(
-        "circuit_id, day_number, city_id, cities(id, name, country, description)"
+        `circuit_id, day_number, city_id, cities(id, name, country, description_${lang})`
       )
       .in("circuit_id", circuitIds)
       .order("circuit_id, day_number");
@@ -168,7 +113,7 @@ export const getCircuitsFull = async (req, res) => {
 
     const { data: includesAll } = await supabase
       .from("circuit_includes")
-      .select("circuit_id, include_items(label)")
+      .select(`circuit_id, include_items(label_${lang})`)
       .in("circuit_id", circuitIds || []);
 
     // 4) Agrupar por circuito
@@ -195,34 +140,31 @@ export const getCircuitsFull = async (req, res) => {
     (includesAll || []).forEach((inc) => {
       if (!includesByCircuit[inc.circuit_id])
         includesByCircuit[inc.circuit_id] = [];
-      includesByCircuit[inc.circuit_id].push(inc.include_items.label);
+      includesByCircuit[inc.circuit_id].push(
+        inc.include_items[`label_${lang}`]
+      );
     });
 
     // 5) Construir respuesta enriquecida
     const enriched = circuits.map((c) => {
       const days = daysByCircuit[c.id] || [];
 
-      // Obtener todas las ciudades relacionadas a este circuito
       const circuitCities = days.map((d) => d.cities);
 
-      // Sacar países únicos
       const countries = Array.from(
         new Set(
           (circuitCities || []).map((city) => city?.country).filter(Boolean)
         )
       );
 
-      // Obtener imágenes
       const images = days.flatMap((d) => imagesByCity[d.city_id] || []);
 
-      // Obtener schedules ordenados
       const circuitSchedules = (schedulesByCircuit[c.id] || []).map((s) => ({
         id: s.id,
         start_date: s.start_date,
         end_date: s.end_date,
       }));
 
-      // Primera fecha disponible
       const firstDate =
         circuitSchedules.length > 0 ? circuitSchedules[0].start_date : null;
 
@@ -233,25 +175,20 @@ export const getCircuitsFull = async (req, res) => {
         base_price: c.base_price,
         starting_point: c.starting_point,
 
-        // Fechas
         schedules: circuitSchedules,
         firstDate,
 
-        // Includes
         includes: includesByCircuit[c.id] || [],
 
-        // Columnas de días
         daysData: days.map((d) => ({
           day: d.day_number,
           city: d.cities?.name,
-          country: d.cities?.country, // ⬅️ NUEVO
-          description: d.cities?.description,
+          country: d.cities?.country,
+          description: d.cities?.[`description_${lang}`],
         })),
 
-        // Países únicos del circuito
-        countries: countries || [], // ⬅️ NUEVO
+        countries: countries || [],
 
-        // Imagen principal
         mainImage: images[images.length - 1] || null,
       };
     });
@@ -263,27 +200,9 @@ export const getCircuitsFull = async (req, res) => {
   }
 };
 
-export const getCircuitsFullPaginated = async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 9;
-  const offset = (page - 1) * limit;
-
-  const { data, count, error } = await supabase
-    .from("circuits")
-    .select("*", { count: "exact" })
-    .range(offset, offset + limit - 1);
-
-  if (error) return res.status(400).json({ error });
-
-  res.json({
-    page,
-    total: count,
-    totalPages: Math.ceil(count / limit),
-    circuits: data,
-  });
-};
 export const getCircuitFullById = async (req, res) => {
   const { id } = req.params;
+  const lang = req.query.lang === "en" ? "en" : "es"; // español por defecto
 
   try {
     // 1️⃣ Circuito base
@@ -306,7 +225,9 @@ export const getCircuitFullById = async (req, res) => {
     // 3️⃣ Días + ciudades
     const { data: days } = await supabase
       .from("circuit_days")
-      .select("day_number, city_id, cities(id, name, country, description)")
+      .select(
+        `day_number, city_id, cities(id, name, country, description_${lang})`
+      )
       .eq("circuit_id", id)
       .order("day_number");
 
@@ -321,7 +242,7 @@ export const getCircuitFullById = async (req, res) => {
     // 5️⃣ Includes
     const { data: includes } = await supabase
       .from("circuit_includes")
-      .select("include_items(label)")
+      .select(`include_items(label_${lang})`)
       .eq("circuit_id", id);
 
     // 6️⃣ Construir respuesta
@@ -332,15 +253,105 @@ export const getCircuitFullById = async (req, res) => {
         day: d.day_number,
         city: d.cities?.name,
         country: d.cities?.country,
-        description: d.cities?.description,
+        description: d.cities?.[`description_${lang}`],
         images: images
           .filter((img) => img.city_id === d.city_id)
           .map((img) => img.image_url),
       })),
-      includes: includes?.map((i) => i.include_items.label) || [],
+      includes: includes?.map((i) => i.include_items[`label_${lang}`]) || [],
     });
   } catch (err) {
     console.error("getCircuitFullById error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+export const getAvailableCircuits = async (req, res) => {
+  const { from, to, lang } = req.query;
+  const language = lang === "en" ? "en" : "es"; // español por defecto
+
+  if (!from || !to)
+    return res.status(400).json({ error: "from and to required" });
+
+  // 1️⃣ Obtener circuitos disponibles
+  const { data: schedules, error } = await supabase
+    .from("circuit_schedules")
+    .select("circuit_id")
+    .gte("start_date", from)
+    .lte("end_date", to)
+    .distinct("circuit_id");
+
+  if (error) return res.status(400).json({ error });
+
+  const ids = schedules.map((s) => s.circuit_id);
+
+  // 2️⃣ Traer información básica de circuitos con nombre en idioma correcto
+  const { data: circuits } = await supabase
+    .from("circuits")
+    .select(`id, name, days, base_price`)
+    .in("id", ids);
+
+  // ⚠️ Si quieres traducir también el nombre del circuito, necesitarías agregar columnas name_es / name_en
+  // Por ahora se deja name como está
+  res.json(circuits || []);
+};
+
+export const getCircuitById = async (req, res) => {
+  const { id } = req.params;
+  const lang = req.query.lang === "en" ? "en" : "es"; // español por defecto
+
+  try {
+    // Circuito base
+    const { data: circuit, error: circuitError } = await supabase
+      .from("circuits")
+      .select("id, name, days, base_price, starting_point")
+      .eq("id", id)
+      .single();
+
+    if (circuitError || !circuit)
+      return res.status(404).json({ error: "Circuit not found" });
+
+    // schedules
+    const { data: schedules, error: schedulesError } = await supabase
+      .from("circuit_schedules")
+      .select("id, start_date, end_date")
+      .eq("circuit_id", id)
+      .order("start_date", { ascending: true });
+
+    if (schedulesError) return res.status(400).json({ error: schedulesError });
+
+    // días + ciudades
+    const { data: days } = await supabase
+      .from("circuit_days")
+      .select(`day_number, city_id, cities(name, description_${lang})`)
+      .eq("circuit_id", id)
+      .order("day_number");
+
+    // imágenes
+    const cityIds = days.map((d) => d.city_id).filter(Boolean);
+    const { data: images } = await supabase
+      .from("city_images")
+      .select("*")
+      .in("city_id", cityIds);
+
+    // includes
+    const { data: includes } = await supabase
+      .from("circuit_includes")
+      .select(`include_items(label_${lang})`)
+      .eq("circuit_id", id);
+
+    res.json({
+      ...circuit,
+      schedules: schedules || [],
+      days: days.map((d) => ({
+        ...d,
+        description: d.cities?.[`description_${lang}`],
+      })),
+      images,
+      includes: includes?.map((i) => i.include_items[`label_${lang}`]) || [],
+    });
+  } catch (err) {
+    console.error("getCircuitById error:", err);
+    res.status(500).json({ error: err.message });
   }
 };
