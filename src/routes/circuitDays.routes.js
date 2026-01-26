@@ -1,9 +1,5 @@
 import { Router } from "express";
-import {
-  getCircuitDays,
-  getDaysByCircuit,
-  createCircuitDay,
-} from "../controllers/circuitDays.controller.js";
+import {getCircuitDays,getDaysByCircuit,createCircuitDay,} from "../controllers/circuitDays.controller.js";
 
 const router = Router();
 
