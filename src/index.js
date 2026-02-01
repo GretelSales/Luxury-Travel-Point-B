@@ -11,12 +11,13 @@ import includeItemsRoutes from "./routes/includeItems.routes.js";
 import circuitIncludesRoutes from "./routes/circuitIncludes.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import carsRoutes from "./routes/cars.routes.js";
+import servicesRoutes from "./routes/services.routes.js";
 
 const app = express();
 //https://luxury-travel-point-backend.vercel.app
 app.use(
   cors({
-    origin: "*",
+    origin: "https://luxury-travel-point-backend.vercel.app",
   }),
 );
 app.use(express.json());
@@ -33,6 +34,7 @@ app.use("/api/include-items", includeItemsRoutes);
 app.use("/api/circuit-includes", circuitIncludesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/cars", carsRoutes);
+app.use("/api", servicesRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
