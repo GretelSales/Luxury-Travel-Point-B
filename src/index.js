@@ -13,10 +13,10 @@ import authRoutes from "./routes/auth.routes.js";
 import carsRoutes from "./routes/cars.routes.js";
 
 const app = express();
-
+//https://luxury-travel-point-backend.vercel.app
 app.use(
   cors({
-    origin: "https://luxury-travel-point-backend.vercel.app",
+    origin: "*",
   }),
 );
 app.use(express.json());
