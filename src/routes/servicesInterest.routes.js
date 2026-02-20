@@ -1,5 +1,5 @@
 import express from "express";
-import { createServiceInterest } from "../controllers/serviceInterest.controller.js";
+import { createServiceInterest } from "../controllers/servicesInterest.controller.js";
 import { optionalAuth } from "../middlewares/optionalAuth.js";
 
 const router = express.Router();
