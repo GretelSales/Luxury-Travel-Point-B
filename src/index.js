@@ -12,6 +12,7 @@ import circuitIncludesRoutes from "./routes/circuitIncludes.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import carsRoutes from "./routes/cars.routes.js";
 import servicesRoutes from "./routes/services.routes.js";
+import serviceInterestRoutes from "./routes/servicesInterest.routes.js";
 
 const app = express();
 //https://luxury-travel-point-backend.vercel.app
@@ -26,6 +27,7 @@ app.get("/", (req, res) =>
   res.json({ ok: true, name: "luxury-travel-point-backend" }),
 );
 
+app.use("/api", serviceInterestRoutes);
 app.use("/api/circuits", circuitsRoutes);
 app.use("/api/cities", citiesRoutes);
 app.use("/api/circuit-days", circuitDaysRoutes);
