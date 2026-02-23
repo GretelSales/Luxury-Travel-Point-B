@@ -1,4 +1,4 @@
-import { supabase } from "../db/supabaseClient.js";
+import supabase from "../db/supabaseClient.js";
 import { sendOwnerNotification } from "../services/mailer.js";
 
 export const createServiceInterest = async (req, res) => {
