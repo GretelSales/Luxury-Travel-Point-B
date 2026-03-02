@@ -43,15 +43,17 @@ export const createServiceInterest = async (req, res) => {
     if (error) throw error;
 
     // 📧 enviar correo a la dueña
-    await sendOwnerNotification({
-      userName: user_name,
-      userEmail: user_email,
-      serviceType: service_type,
-      serviceName: service_name,
-      circuitName: circuit_name,
-      message,
-      language,
-    });
+    /*
+await sendOwnerNotification({
+  userName: user_name,
+  userEmail: user_email,
+  serviceType: service_type,
+  serviceName: service_name,
+  circuitName: circuit_name,
+  message,
+  language,
+});
+*/
 
     res.status(201).json({ success: true });
   } catch (err) {
