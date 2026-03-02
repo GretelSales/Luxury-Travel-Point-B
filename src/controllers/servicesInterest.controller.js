@@ -3,14 +3,25 @@ import { sendOwnerNotification } from "../services/mailer.js";
 
 export const createServiceInterest = async (req, res) => {
   try {
-    const { service_type, service_name, circuit_name, message, language } =
-      req.body;
+    // 🔹 ahora también tomamos user_id del body
+    const {
+      service_type,
+      service_name,
+      circuit_name,
+      message,
+      language,
+      user_id,
+      user_name: bodyUserName,
+      user_email: bodyUserEmail,
+    } = req.body;
 
     // usuario desde auth (si existe)
     const user = req.user || null;
 
-    const user_name = user?.full_name || req.body.user_name;
-    const user_email = user?.email || req.body.user_email;
+    // prioridad: auth user > body user
+    const user_name = user?.full_name || bodyUserName;
+    const user_email = user?.email || bodyUserEmail;
+    const finalUserId = user?.id || user_id || null;
 
     if (!user_name || !user_email || !service_type || !service_name) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -18,7 +29,7 @@ export const createServiceInterest = async (req, res) => {
 
     const { data, error } = await supabase.from("service_interests").insert([
       {
-        user_id: user?.id || null,
+        user_id: finalUserId,
         user_name,
         user_email,
         service_type,
