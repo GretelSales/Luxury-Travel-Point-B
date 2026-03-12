@@ -98,7 +98,7 @@ export const getCircuitsFull = async (req, res) => {
     const { data: daysAll, error: daysError } = await supabase
       .from("circuit_days")
       .select(
-        `circuit_id, day_number, city_id, cities(id, name, country, description_${lang})`
+        `circuit_id, day_number, city_id, cities(id, name, country, description_${lang})`,
       )
       .in("circuit_id", circuitIds)
       .order("circuit_id, day_number");
@@ -108,7 +108,7 @@ export const getCircuitsFull = async (req, res) => {
     const cityIds = [...new Set(daysAll.map((d) => d.city_id))].filter(Boolean);
     const { data: imagesAll } = await supabase
       .from("city_images")
-      .select("id, city_id, image_url")
+      .select("id, city_id, image_path")
       .in("city_id", cityIds || []);
 
     const { data: includesAll } = await supabase
@@ -133,7 +133,9 @@ export const getCircuitsFull = async (req, res) => {
     const imagesByCity = {};
     (imagesAll || []).forEach((img) => {
       if (!imagesByCity[img.city_id]) imagesByCity[img.city_id] = [];
-      imagesByCity[img.city_id].push(img.image_url);
+      imagesByCity[img.city_id].push(
+        `${process.env.SUPABASE_URL}/storage/v1/object/public/circuit-images/${img.image_path}`,
+      );
     });
 
     const includesByCircuit = {};
@@ -141,7 +143,7 @@ export const getCircuitsFull = async (req, res) => {
       if (!includesByCircuit[inc.circuit_id])
         includesByCircuit[inc.circuit_id] = [];
       includesByCircuit[inc.circuit_id].push(
-        inc.include_items[`label_${lang}`]
+        inc.include_items[`label_${lang}`],
       );
     });
 
@@ -153,8 +155,8 @@ export const getCircuitsFull = async (req, res) => {
 
       const countries = Array.from(
         new Set(
-          (circuitCities || []).map((city) => city?.country).filter(Boolean)
-        )
+          (circuitCities || []).map((city) => city?.country).filter(Boolean),
+        ),
       );
 
       const images = days.flatMap((d) => imagesByCity[d.city_id] || []);
@@ -226,7 +228,7 @@ export const getCircuitFullById = async (req, res) => {
     const { data: days } = await supabase
       .from("circuit_days")
       .select(
-        `day_number, city_id, cities(id, name, country, description_${lang})`
+        `day_number, city_id, cities(id, name, country, description_${lang})`,
       )
       .eq("circuit_id", id)
       .order("day_number");
@@ -256,7 +258,10 @@ export const getCircuitFullById = async (req, res) => {
         description: d.cities?.[`description_${lang}`],
         images: images
           .filter((img) => img.city_id === d.city_id)
-          .map((img) => img.image_url),
+          .map(
+            (img) =>
+              `${process.env.SUPABASE_URL}/storage/v1/object/public/circuit-images/${img.image_path}`,
+          ),
       })),
       includes: includes?.map((i) => i.include_items[`label_${lang}`]) || [],
     });
@@ -331,8 +336,13 @@ export const getCircuitById = async (req, res) => {
     const cityIds = days.map((d) => d.city_id).filter(Boolean);
     const { data: images } = await supabase
       .from("city_images")
-      .select("*")
-      .in("city_id", cityIds);
+      .select("id, city_id, image_path")
+      .in("city_id", cityIds || []);
+
+    const imagesWithUrl = (images || []).map((img) => ({
+      ...img,
+      image_url: `${process.env.SUPABASE_URL}/storage/v1/object/public/circuit-images/${img.image_path}`,
+    }));
 
     // includes
     const { data: includes } = await supabase
@@ -347,7 +357,7 @@ export const getCircuitById = async (req, res) => {
         ...d,
         description: d.cities?.[`description_${lang}`],
       })),
-      images,
+      images: imagesWithUrl,
       includes: includes?.map((i) => i.include_items[`label_${lang}`]) || [],
     });
   } catch (err) {
