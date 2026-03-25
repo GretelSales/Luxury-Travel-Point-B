@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getPromoBanner } from "../controllers/promoBanner.controller.js";
+import { getPromoBanner } from "../controllers/banner.controller.js";
 
 const router = Router();
 
