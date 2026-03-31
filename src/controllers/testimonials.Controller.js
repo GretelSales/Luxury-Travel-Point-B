@@ -5,14 +5,14 @@ export const getTestimonials = async (req, res) => {
     const { data, error } = await supabase
       .from("testimonials")
       .select("*")
-      .eq("visible", true) // 🔹 solo traemos visibles
+      .eq("is_visible", true)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    res.status(200).json(data);
+    res.json(data);
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching testimonials:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 };
