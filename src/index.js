@@ -14,6 +14,7 @@ import carsRoutes from "./routes/cars.routes.js";
 import servicesRoutes from "./routes/services.routes.js";
 import serviceInterestRoutes from "./routes/servicesInterest.routes.js";
 import promoBannerRoutes from "./routes/banner.routes.js";
+import testimonialsRoutes from "./routes/testimonials.routes.js";
 
 const app = express();
 //https://luxury-travel-point-backend.vercel.app
@@ -39,6 +40,7 @@ app.use("/api/circuit-includes", circuitIncludesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/cars", carsRoutes);
 app.use("/api", servicesRoutes);
+app.use("/api/testimonials", testimonialsRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
