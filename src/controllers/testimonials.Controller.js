@@ -5,7 +5,6 @@ export const getTestimonials = async (req, res) => {
     const { data, error } = await supabase
       .from("testimonials")
       .select("*")
-      .eq("is_visible", true)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
