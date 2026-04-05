@@ -7,29 +7,31 @@ export const getServicesContent = async (req, res) => {
     const { data, error } = await supabase
       .from("services_content")
       .select("*")
-      .limit(1);
+      .order("id", { ascending: true });
 
     if (error) throw error;
+
     if (!data || data.length === 0) {
       return res.status(404).json({ message: "Service content not found" });
     }
 
-    const service = data[0];
-
-    const response =
+    const response = data.map((service) =>
       lang === "en"
         ? {
+            id: service.id,
             title: service.title_en,
             badge: service.badge_en,
             summary: service.summary_en,
             details: service.details_en,
           }
         : {
+            id: service.id,
             title: service.title_es,
             badge: service.badge_es,
             summary: service.summary_es,
             details: service.details_es,
-          };
+          },
+    );
 
     res.status(200).json(response);
   } catch (err) {
