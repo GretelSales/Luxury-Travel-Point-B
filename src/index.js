@@ -18,12 +18,7 @@ import testimonialsRoutes from "./routes/testimonials.routes.js";
 import companyRoutes from "./routes/companyContact.routes.js";
 
 const app = express();
-//https://luxury-travel-point-backend.vercel.app
-app.use(
-  cors({
-    origin: "https://luxury-travel-point-backend.vercel.app",
-  }),
-);
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) =>
@@ -46,3 +41,5 @@ app.use("/api/company", companyRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+
+//{    origin: "https://luxury-travel-point-backend.vercel.app",}
