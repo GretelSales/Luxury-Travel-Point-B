@@ -40,7 +40,7 @@ app.use("/api/include-items", includeItemsRoutes);
 app.use("/api/circuit-includes", circuitIncludesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/cars", carsRoutes);
-app.use("/api", servicesRoutes);
+app.use("/api/services-content", servicesRoutes);
 app.use("/api/testimonials", testimonialsRoutes);
 app.use("/api/company", companyRoutes);
 
