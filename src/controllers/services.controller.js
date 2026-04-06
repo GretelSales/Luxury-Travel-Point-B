@@ -15,14 +15,19 @@ export const getServicesContent = async (req, res) => {
       return res.status(404).json({ message: "Service content not found" });
     }
 
-    const response = data.map((service) =>
-      lang === "en"
+    const response = data.map((service) => {
+      const imageUrl = service.image_name
+        ? `${process.env.SUPABASE_URL}/storage/v1/object/public/services-images/${service.image_name}`
+        : null;
+
+      return lang === "en"
         ? {
             id: service.id,
             title: service.title_en,
             badge: service.badge_en,
             summary: service.summary_en,
             details: service.details_en,
+            image: imageUrl, // ✅ agregado
           }
         : {
             id: service.id,
@@ -30,8 +35,9 @@ export const getServicesContent = async (req, res) => {
             badge: service.badge_es,
             summary: service.summary_es,
             details: service.details_es,
-          },
-    );
+            image: imageUrl, // ✅ agregado
+          };
+    });
 
     res.status(200).json(response);
   } catch (err) {
