@@ -17,7 +17,7 @@ export const getServicesContent = async (req, res) => {
 
     const response = data.map((service) => {
       const imageUrl = service.image_name
-        ? `${process.env.SUPABASE_URL}/storage/v1/object/public/services-images/${service.image_name}`
+        ? `${process.env.SUPABASE_URL}/storage/v1/object/public/servicesImages/${service.image_name}`
         : null;
 
       return lang === "en"
